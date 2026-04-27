@@ -9,6 +9,7 @@ import SeverityPie from './components/SeverityPie';
 import Heatmap from './components/Heatmap';
 import RecordsTable from './components/RecordsTable';
 import DeepAnalyticsCards from './components/DeepAnalyticsCards';
+import InfrastructureCards from './components/InfrastructureCards';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -23,6 +24,12 @@ function App() {
   const [lightingCrashType, setLightingCrashType] = useState([]);
   const [hourlyWeatherRisk, setHourlyWeatherRisk] = useState([]);
   const [controlCause, setControlCause] = useState([]);
+  
+  // Infrastructure Analytics States Maps
+  const [roadDefect, setRoadDefect] = useState([]);
+  const [intersection, setIntersection] = useState([]);
+  const [alignmentCrash, setAlignmentCrash] = useState([]);
+  const [trafficwayRanking, setTrafficwayRanking] = useState([]);
 
   // React State Hook defining filter logic for crashes fetching functionality
   const [filters, setFilters] = useState({ weather: '', month: '', day: '', hour: '' });
@@ -32,7 +39,11 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [overviewRes, anomaliesRes, crashesRes, heatmapRes, wsRes, lcRes, hwrRes, ccRes] = await Promise.all([
+        const [
+          overviewRes, anomaliesRes, crashesRes, heatmapRes, 
+          wsRes, lcRes, hwrRes, ccRes,
+          rdRes, intRes, algnRes, trafRes
+        ] = await Promise.all([
           axios.get(`${API_BASE}/stats/overview`),
           axios.get(`${API_BASE}/stats/anomalies`),
           axios.get(`${API_BASE}/crashes?limit=1000`), // Only used to sample hour densities purely statically as alternative
@@ -40,7 +51,11 @@ function App() {
           axios.get(`${API_BASE}/stats/weather-severity`),
           axios.get(`${API_BASE}/stats/lighting-crashtype`),
           axios.get(`${API_BASE}/stats/hourly-weather-risk`),
-          axios.get(`${API_BASE}/stats/control-cause`)
+          axios.get(`${API_BASE}/stats/control-cause`),
+          axios.get(`${API_BASE}/stats/road-defect`),
+          axios.get(`${API_BASE}/stats/intersection`),
+          axios.get(`${API_BASE}/stats/alignment-crash`),
+          axios.get(`${API_BASE}/stats/trafficway-ranking`)
         ]);
 
         setOverview(overviewRes.data);
@@ -50,6 +65,10 @@ function App() {
         setLightingCrashType(lcRes.data);
         setHourlyWeatherRisk(hwrRes.data);
         setControlCause(ccRes.data);
+        setRoadDefect(rdRes.data);
+        setIntersection(intRes.data);
+        setAlignmentCrash(algnRes.data);
+        setTrafficwayRanking(trafRes.data);
 
         // Mock default scale or process baseline densities from available bulk fetches simply for the bar chart
         const hist = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 }));
@@ -150,6 +169,16 @@ function App() {
           lightingCrashType={lightingCrashType}
           hourlyWeatherRisk={hourlyWeatherRisk}
           controlCause={controlCause}
+        />
+      </div>
+
+      <div style={{ marginTop: '2rem' }}>
+        <h2 style={{ paddingLeft: '1rem', borderLeft: '4px solid #f85149' }}>Road & Infrastructure Mathematics</h2>
+        <InfrastructureCards 
+          roadDefect={roadDefect}
+          intersection={intersection}
+          alignmentCrash={alignmentCrash}
+          trafficwayRanking={trafficwayRanking}
         />
       </div>
 

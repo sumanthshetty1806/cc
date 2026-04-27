@@ -325,4 +325,176 @@ router.get('/control-cause', async (req, res) => {
     }
 });
 
+// /road-defect: road_defect vs average injuries_total
+router.get('/road-defect', async (req, res) => {
+    try {
+        const data = await Crash.aggregate([
+            {
+                $match: { road_defect: { $nin: [null, '', 'UNKNOWN'] }, injuries_total: { $ne: null } }
+            },
+            {
+                $group: {
+                    _id: '$road_defect',
+                    total_crashes: { $sum: 1 },
+                    avg_injuries: { $avg: '$injuries_total' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    defect: '$_id',
+                    total_crashes: 1,
+                    avg_injuries: { $round: ['$avg_injuries', 3] }
+                }
+            },
+            // Sort by absolute danger ratio mathematically
+            { $sort: { avg_injuries: -1 } },
+            { $limit: 15 }
+        ]);
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// /intersection: intersection_related_i vs most_severe_injury & avg num_units
+router.get('/intersection', async (req, res) => {
+    try {
+        const data = await Crash.aggregate([
+            {
+                $match: {
+                    // Filter strictly mapped Y/N booleans natively preventing 'UNKNOWN' distortion
+                    intersection_related_i: { $in: ['Y', 'N'] },
+                    most_severe_injury: { $nin: [null, ''] },
+                    num_units: { $ne: null }
+                }
+            },
+            // Facet pipelines parallel execute isolated averages and distributions instantly
+            {
+                $facet: {
+                    severityDist: [
+                        {
+                            $group: {
+                                _id: {
+                                    is_intersection: { $cond: [{ $eq: ['$intersection_related_i', 'Y'] }, 'Intersection', 'Non-Intersection'] },
+                                    severity: '$most_severe_injury'
+                                },
+                                count: { $sum: 1 }
+                            }
+                        }
+                    ],
+                    avgUnits: [
+                        {
+                            $group: {
+                                _id: { $cond: [{ $eq: ['$intersection_related_i', 'Y'] }, 'Intersection', 'Non-Intersection'] },
+                                avg_units: { $avg: '$num_units' }
+                            }
+                        }
+                    ]
+                }
+            }
+        ]);
+
+        const result = { 'Intersection': { type: 'Intersection' }, 'Non-Intersection': { type: 'Non-Intersection' } };
+
+        if(data[0]) {
+             if (data[0].avgUnits) {
+                 data[0].avgUnits.forEach(item => {
+                     result[item._id].avg_units = Number(item.avg_units.toFixed(2));
+                 });
+             }
+             if (data[0].severityDist) {
+                 data[0].severityDist.forEach(item => {
+                     result[item._id.is_intersection][item._id.severity] = item.count;
+                 });
+             }
+        }
+        res.json(Object.values(result));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// /alignment-crash: alignment vs crash_type + injury_rate multiplier
+router.get('/alignment-crash', async (req, res) => {
+    try {
+        const data = await Crash.aggregate([
+            {
+                $match: {
+                    alignment: { $nin: [null, ''] },
+                    crash_type: { $nin: [null, ''] }
+                }
+            },
+            {
+                $group: {
+                    _id: { alignment: '$alignment', type: '$crash_type' },
+                    total_crashes: { $sum: 1 },
+                    total_injuries: { $sum: '$injuries_total' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    alignment: '$_id.alignment',
+                    type: '$_id.type',
+                    total_crashes: 1,
+                    injury_rate: {
+                        $cond: [
+                            { $eq: ['$total_crashes', 0] },
+                            0,
+                            { $divide: ['$total_injuries', '$total_crashes'] }
+                        ]
+                    }
+                }
+            },
+            { $sort: { total_crashes: -1 } },
+            { $limit: 25 }
+        ]);
+        
+        const payload = data.map(o => ({
+            ...o,
+            injury_rate: Number(o.injury_rate.toFixed(3)),
+            label: `${o.type} (${o.alignment})`
+        }));
+        
+        res.json(payload);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// /trafficway-ranking: Rank trafficway values by average injury count per crash
+router.get('/trafficway-ranking', async (req, res) => {
+    try {
+        const data = await Crash.aggregate([
+            {
+                $match: {
+                    trafficway_type: { $nin: [null, '', 'UNKNOWN'] },
+                    injuries_total: { $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: '$trafficway_type',
+                    total_crashes: { $sum: 1 },
+                    avg_injuries: { $avg: '$injuries_total' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    trafficway: '$_id',
+                    total_crashes: 1,
+                    avg_injuries: { $round: ['$avg_injuries', 3] }
+                }
+            },
+            { $sort: { avg_injuries: -1 } },
+            { $limit: 15 }
+        ]);
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
