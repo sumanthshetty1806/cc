@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: traffic-backend
+    ports:
+      - "5000:5000"
+    environment:
+      # Automatically captures local host's MONGO_URI natively if defined, defaulting to Docker's internal host router explicitly mapping outside the container
+      - MONGO_URI=${MONGO_URI:-mongodb://host.docker.internal:27017/traffic_dashboard}
+      - PORT=5000
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: traffic-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
