@@ -99,3 +99,39 @@ body {
   color: #c9d1d9 !important;
   border-radius: 6px;
 }
+
+/* Navigation Layout */
+.dashboard-navbar {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  background-color: #161b22;
+  border-bottom: 1px solid #30363d;
+  border-top: 1px solid #30363d;
+  padding: 1rem 2rem;
+  margin-bottom: 2rem;
+  border-radius: 8px;
+}
+
+.nav-item {
+  color: #8b949e;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  color: #c9d1d9;
+  background-color: #21262d;
+}
+
+.nav-item.active {
+  color: #ffffff;
+  background-color: #58a6ff;
+}
+
+.dashboard-content {
+  padding-bottom: 4rem;
+}

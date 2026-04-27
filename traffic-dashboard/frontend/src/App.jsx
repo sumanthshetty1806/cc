@@ -1,40 +1,19 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
-import OverviewCards from './components/OverviewCards';
-import HourlyAnomaliesChart from './components/HourlyAnomaliesChart';
-import WeatherChart from './components/WeatherChart';
-import MonthlyTrend from './components/MonthlyTrend';
-import SeverityPie from './components/SeverityPie';
-import Heatmap from './components/Heatmap';
-import RecordsTable from './components/RecordsTable';
-import DeepAnalyticsCards from './components/DeepAnalyticsCards';
-import InfrastructureCards from './components/InfrastructureCards';
+
+import Layout from './layouts/Layout';
+import Overview from './pages/Overview';
+import CrossAnalytics from './pages/CrossAnalytics';
+import Infrastructure from './pages/Infrastructure';
+import DataExplorer from './pages/DataExplorer';
 
 const API_BASE = 'http://localhost:5000/api';
 
 function App() {
-  const [overview, setOverview] = useState(null);
-  const [anomalies, setAnomalies] = useState([]);
-  const [hourlyData, setHourlyData] = useState([]);
-  const [heatmapData, setHeatmapData] = useState([]);
-  
-  // Matrix Tracking States Maps
-  const [weatherSeverity, setWeatherSeverity] = useState([]);
-  const [lightingCrashType, setLightingCrashType] = useState([]);
-  const [hourlyWeatherRisk, setHourlyWeatherRisk] = useState([]);
-  const [controlCause, setControlCause] = useState([]);
-  
-  // Infrastructure Analytics States Maps
-  const [roadDefect, setRoadDefect] = useState([]);
-  const [intersection, setIntersection] = useState([]);
-  const [alignmentCrash, setAlignmentCrash] = useState([]);
-  const [trafficwayRanking, setTrafficwayRanking] = useState([]);
-
-  // React State Hook defining filter logic for crashes fetching functionality
-  const [filters, setFilters] = useState({ weather: '', month: '', day: '', hour: '' });
-  const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [contextPayload, setContextPayload] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,7 +25,7 @@ function App() {
         ] = await Promise.all([
           axios.get(`${API_BASE}/stats/overview`),
           axios.get(`${API_BASE}/stats/anomalies`),
-          axios.get(`${API_BASE}/crashes?limit=1000`), // Only used to sample hour densities purely statically as alternative
+          axios.get(`${API_BASE}/crashes?limit=1000`), // Scaled limitation for baseline 24H mapping cleanly
           axios.get(`${API_BASE}/stats/heatmap`),
           axios.get(`${API_BASE}/stats/weather-severity`),
           axios.get(`${API_BASE}/stats/lighting-crashtype`),
@@ -58,28 +37,31 @@ function App() {
           axios.get(`${API_BASE}/stats/trafficway-ranking`)
         ]);
 
-        setOverview(overviewRes.data);
-        setAnomalies(anomaliesRes.data);
-        setHeatmapData(heatmapRes.data);
-        setWeatherSeverity(wsRes.data);
-        setLightingCrashType(lcRes.data);
-        setHourlyWeatherRisk(hwrRes.data);
-        setControlCause(ccRes.data);
-        setRoadDefect(rdRes.data);
-        setIntersection(intRes.data);
-        setAlignmentCrash(algnRes.data);
-        setTrafficwayRanking(trafRes.data);
-
-        // Mock default scale or process baseline densities from available bulk fetches simply for the bar chart
         const hist = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 }));
         if (crashesRes.data) {
           crashesRes.data.forEach(c => {
             if (c.crash_hour >= 0 && c.crash_hour < 24) hist[c.crash_hour].count++;
           });
         }
-        setHourlyData(hist);
+
+        // Globalized State Memory Context natively injected into Router Outlet
+        setContextPayload({
+          overview: overviewRes.data,
+          anomalies: anomaliesRes.data,
+          heatmapData: heatmapRes.data,
+          hourlyData: hist,
+          weatherSeverity: wsRes.data,
+          lightingCrashType: lcRes.data,
+          hourlyWeatherRisk: hwrRes.data,
+          controlCause: ccRes.data,
+          roadDefect: rdRes.data,
+          intersection: intRes.data,
+          alignmentCrash: algnRes.data,
+          trafficwayRanking: trafRes.data
+        });
+
       } catch (err) {
-        console.error("Error fetching comprehensive data payload:", err);
+        console.error("Error fetching heavily aggregated matrix data payload:", err);
       } finally {
         setLoading(false);
       }
@@ -88,124 +70,28 @@ function App() {
     fetchData();
   }, []);
 
-  const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
-  const fetchRecords = async () => {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters.weather) queryParams.append('weather', filters.weather);
-      if (filters.month) queryParams.append('month', filters.month);
-      if (filters.day) queryParams.append('day', filters.day);
-      if (filters.hour) queryParams.append('hour', filters.hour);
-
-      const res = await axios.get(`${API_BASE}/crashes?${queryParams.toString()}`);
-      setRecords(res.data);
-    } catch (err) {
-      console.error("API Retrieval for specific limits has explicitly failed:", err);
-    }
-  };
-
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#c9d1d9' }}>Loading Dashboard Environment...</div>;
+  if (loading || !contextPayload) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '1rem' }}>
+        <h2 style={{color: '#c9d1d9'}}>Booting Deep Analytical Correlators...</h2>
+        <div style={{color: '#8b949e'}}>Running 12 synchronous MongoDB Pipelines natively</div>
+      </div>
+    );
   }
 
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h1>Traffic Analysis Dashboard</h1>
-      </header>
-
-      {/* Dynamic Filter Query Sub-Bar */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'row', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <input
-          name="weather"
-          placeholder="Weather (ex. CLEAR)"
-          value={filters.weather}
-          onChange={handleFilterChange}
-          style={inputStyles}
-        />
-        <input
-          name="month" type="number"
-          placeholder="Month (1-12)"
-          value={filters.month}
-          onChange={handleFilterChange}
-          style={inputStyles}
-        />
-        <input
-          name="day" type="number"
-          placeholder="DayOfWeek (0-6)"
-          value={filters.day}
-          onChange={handleFilterChange}
-          style={inputStyles}
-        />
-        <input
-          name="hour" type="number"
-          placeholder="Hour (0-23)"
-          value={filters.hour}
-          onChange={handleFilterChange}
-          style={inputStyles}
-        />
-        <button onClick={fetchRecords} style={btnStyles}>View Records</button>
-      </div>
-
-      <OverviewCards data={overview} />
-
-      <div className="charts-grid">
-        <HourlyAnomaliesChart hourlyData={hourlyData} anomalies={anomalies} />
-        <Heatmap data={heatmapData} />
-        <WeatherChart />
-        <MonthlyTrend />
-        <SeverityPie data={overview} />
-
-        {records && records.length > 0 && <RecordsTable records={records} />}
-      </div>
-      
-      <div style={{ marginTop: '2rem' }}>
-        <h2 style={{ paddingLeft: '1rem', borderLeft: '4px solid #d2a8ff' }}>Correlation & Cross-Dimensional Analytics</h2>
-        <DeepAnalyticsCards 
-          weatherSeverity={weatherSeverity}
-          lightingCrashType={lightingCrashType}
-          hourlyWeatherRisk={hourlyWeatherRisk}
-          controlCause={controlCause}
-        />
-      </div>
-
-      <div style={{ marginTop: '2rem' }}>
-        <h2 style={{ paddingLeft: '1rem', borderLeft: '4px solid #f85149' }}>Road & Infrastructure Mathematics</h2>
-        <InfrastructureCards 
-          roadDefect={roadDefect}
-          intersection={intersection}
-          alignmentCrash={alignmentCrash}
-          trafficwayRanking={trafficwayRanking}
-        />
-      </div>
-
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout contextPayload={contextPayload} />}>
+          <Route index element={<Navigate to="/overview" replace />} />
+          <Route path="overview" element={<Overview />} />
+          <Route path="analytics" element={<CrossAnalytics />} />
+          <Route path="infrastructure" element={<Infrastructure />} />
+          <Route path="explorer" element={<DataExplorer />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-// Small UI definitions for inputs statically
-const inputStyles = {
-  background: '#0d1117',
-  border: '1px solid #30363d',
-  color: '#c9d1d9',
-  padding: '0.7rem 1.2rem',
-  borderRadius: '6px',
-  outline: 'none',
-  fontSize: '1rem'
-};
-
-const btnStyles = {
-  background: '#238636',
-  color: '#ffffff',
-  border: 'none',
-  padding: '0.7rem 1.5rem',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontWeight: 'bold',
-  fontSize: '1rem'
-};
 
 export default App;
