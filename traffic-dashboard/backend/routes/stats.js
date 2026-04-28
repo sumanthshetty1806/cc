@@ -3,7 +3,6 @@ const router = express.Router();
 const Crash = require('../models/Crash');
 
 // /overview: Sum of crashes, injuries, fatalities, and average units.
-
 router.get('/overview', async (req, res) => {
     try {
         const stats = await Crash.aggregate([
@@ -27,6 +26,30 @@ router.get('/overview', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// /monthly-trend: Map global crash sums strictly to crash_month (1 = Jan, 12 = Dec)
+router.get('/monthly-trend', async (req, res) => {
+    try {
+        const data = await Crash.aggregate([
+            { $match: { crash_month: { $ne: null } } },
+            { $group: { _id: '$crash_month', crashes: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+        ]);
+
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        const payload = data.map(item => {
+            const index = item._id - 1; 
+            const name = (index >= 0 && index <= 11) ? monthNames[index] : `Month ${item._id}`;
+            return { month: name, crashes: item.crashes };
+        });
+
+        res.json(payload);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 // /anomalies: Group by crash_hour (crash_hou). Calculate mean/std of crash counts.
 // Calculate Z-Score and return only hours where Z > 2.
@@ -90,42 +113,55 @@ router.get('/anomalies', async (req, res) => {
     }
 });
 
-// /heatmap: Generate a 2D array [7][24] representing [crash_day][crash_hou] frequencies
+// /heatmap: Generate a 2D array [12][31] representing [crash_month][crash_day_of_month] frequencies
 router.get('/heatmap', async (req, res) => {
     try {
         const heatmapData = await Crash.aggregate([
             {
-                $match: {
-                    crash_day_of_week: { $ne: null },
-                    crash_hour: { $ne: null }
+                $project: {
+                    month: { $month: "$crash_date" },
+                    day: { $dayOfMonth: "$crash_date" }
                 }
             },
             {
                 $group: {
-                    _id: {
-                        day: '$crash_day_of_week',
-                        hour: '$crash_hour'
-                    },
+                    _id: { month: '$month', day: '$day' },
                     count: { $sum: 1 }
                 }
             }
         ]);
         
-        // Initialize an empty 7x24 grid representing day x hour
-        const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
+        // Initialize an empty 12x31 grid representing actual Calendar Dates
+        const grid = Array.from({ length: 12 }, () => Array(31).fill(0));
         
         heatmapData.forEach(item => {
-            const d = item._id.day;
-            const h = item._id.hour;
-            // Standardizing 1-7 day scheme (common in CSV) to 0-6 array bounds, keeping raw if already 0-6
-            const dayIndex = (d >= 1 && d <= 7) ? d - 1 : d;
-            
-            if (dayIndex >= 0 && dayIndex < 7 && h >= 0 && h < 24) {
-               grid[dayIndex][h] = item.count;
+            if (item._id.month && item._id.day) {
+                const mIndex = item._id.month - 1;
+                const dIndex = item._id.day - 1;
+                
+                if (mIndex >= 0 && mIndex < 12 && dIndex >= 0 && dIndex < 31) {
+                   grid[mIndex][dIndex] = item.count;
+                }
             }
         });
 
         res.json(grid);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// /weather-crashes: Top 10 weather_condition values sorted by count.
+router.get('/weather-crashes', async (req, res) => {
+    try {
+        const topWeather = await Crash.aggregate([
+            { $match: { weather_condition: { $nin: [null, '', 'UNKNOWN'] } } },
+            { $group: { _id: '$weather_condition', crashes: { $sum: 1 } } },
+            { $sort: { crashes: -1 } },
+            { $limit: 10 },
+            { $project: { _id: 0, weather: '$_id', crashes: 1 } }
+        ]);
+        res.json(topWeather);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

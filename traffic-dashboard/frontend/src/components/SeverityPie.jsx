@@ -22,6 +22,7 @@ export default function SeverityPie({ data }) {
               cy="50%"
               labelLine={false}
               outerRadius={100}
+              minAngle={5}
               fill="#8884d8"
               dataKey="value"
             >

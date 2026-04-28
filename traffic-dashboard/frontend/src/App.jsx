@@ -21,7 +21,7 @@ function App() {
         const [
           overviewRes, anomaliesRes, crashesRes, heatmapRes, 
           wsRes, lcRes, hwrRes, ccRes,
-          rdRes, intRes, algnRes, trafRes
+          rdRes, intRes, algnRes, trafRes, monthlyRes, weatherTopRes
         ] = await Promise.all([
           axios.get(`${API_BASE}/stats/overview`),
           axios.get(`${API_BASE}/stats/anomalies`),
@@ -34,7 +34,9 @@ function App() {
           axios.get(`${API_BASE}/stats/road-defect`),
           axios.get(`${API_BASE}/stats/intersection`),
           axios.get(`${API_BASE}/stats/alignment-crash`),
-          axios.get(`${API_BASE}/stats/trafficway-ranking`)
+          axios.get(`${API_BASE}/stats/trafficway-ranking`),
+          axios.get(`${API_BASE}/stats/monthly-trend`),
+          axios.get(`${API_BASE}/stats/weather-crashes`)
         ]);
 
         const hist = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 }));
@@ -50,6 +52,8 @@ function App() {
           anomalies: anomaliesRes.data,
           heatmapData: heatmapRes.data,
           hourlyData: hist,
+          monthlyTrend: monthlyRes.data,
+          weatherCrashes: weatherTopRes.data,
           weatherSeverity: wsRes.data,
           lightingCrashType: lcRes.data,
           hourlyWeatherRisk: hwrRes.data,

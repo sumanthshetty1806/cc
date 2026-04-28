@@ -1,15 +1,6 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const data = [
-  { month: 'Jan', crashes: 400 },
-  { month: 'Feb', crashes: 300 },
-  { month: 'Mar', crashes: 550 },
-  { month: 'Apr', crashes: 450 },
-  { month: 'May', crashes: 600 },
-  { month: 'Jun', crashes: 700 },
-];
-
-export default function MonthlyTrend() {
+export default function MonthlyTrend({ data }) {
   return (
     <div className="chart-card">
       <h3>Monthly Collision Trend</h3>

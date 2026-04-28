@@ -7,7 +7,7 @@ import MonthlyTrend from '../components/MonthlyTrend';
 import SeverityPie from '../components/SeverityPie';
 
 export default function Overview() {
-  const { overview, hourlyData, anomalies } = useOutletContext();
+  const { overview, hourlyData, anomalies, monthlyTrend, weatherCrashes } = useOutletContext();
   
   if (!overview) return null;
 
@@ -16,8 +16,8 @@ export default function Overview() {
       <OverviewCards data={overview} />
       <div className="charts-grid" style={{ marginTop: '2rem' }}>
         <HourlyAnomaliesChart hourlyData={hourlyData} anomalies={anomalies} />
-        <WeatherChart />
-        <MonthlyTrend />
+        <MonthlyTrend data={monthlyTrend} />
+        <WeatherChart data={weatherCrashes} />
         <SeverityPie data={overview} />
       </div>
     </>
